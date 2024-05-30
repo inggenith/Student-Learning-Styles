@@ -1,0 +1,95 @@
+import numpy as np
+import pandas as pd
+import tkinter as tk
+from tkinter import filedialog, messagebox, simpledialog
+from tensorflow.keras.models import load_model
+from tensorflow.keras.losses import MeanSquaredError
+import openai
+
+class PredictorChatbotApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Learning Style and Chatbot Tool")
+
+        upload_button = tk.Button(self.root, text="Upload Data for Prediction", command=self.upload_data)
+        upload_button.pack(pady=10)
+
+        analyze_styles_button = tk.Button(self.root, text="Upload and Analyze Learning Styles", command=self.upload_and_analyze)
+        analyze_styles_button.pack(pady=10)
+
+        chat_button = tk.Button(self.root, text="Ask GPT", command=self.ask_gpt)
+        chat_button.pack(pady=10)
+
+        self.model = self.load_lstm_model()
+
+        openai.api_key = 'Enter API Key'  
+
+    def load_lstm_model(self):
+        model_path = "C:\\Users\\X\\OneDrive - UNED\\Documentos\\LSTM_model.h5"
+        return load_model(model_path, custom_objects={'mse': MeanSquaredError()})
+
+    def upload_data(self):
+        file_path = filedialog.askopenfilename(filetypes=[("Excel files", "*.xlsx;*.xls")])
+        if file_path:
+            try:
+                data = pd.read_excel(file_path)
+                output_data = []
+
+                for index, row in data.iterrows():
+                    X = np.array(row[2:7], dtype=np.float32).reshape((1, 5, 1))  # Assuming data starts from column C to G
+                    prediction = self.model.predict(X)[0]
+                    output_data.append([row[0], row[1]] + prediction.tolist())  # Convert numpy array to list
+
+                output_df = pd.DataFrame(output_data, columns=["Student Number", "Learning Style"] + [f"Week {i}" for i in range(6, 17)])
+                save_path = filedialog.asksaveasfilename(defaultextension=".xlsx", filetypes=[("Excel files", "*.xlsx;*.xls")], initialfile='predictions.xlsx')
+                if save_path:
+                    output_df.to_excel(save_path, index=False)
+                    messagebox.showinfo("Success", "Predictions saved to " + save_path)
+            except Exception as e:
+                messagebox.showerror("Error", f"An error occurred during prediction: {str(e)}")
+
+    def upload_and_analyze(self):
+        file_path = filedialog.askopenfilename(filetypes=[("Excel files", "*.xlsx;*.xls")])
+        if file_path:
+            try:
+                data = pd.read_excel(file_path, decimal=',') 
+                results = self.analyze_styles(data)
+                info_message = "\n".join([f"{dim}: {res['High']}, {res['Low']}" for dim, res in results.items()])
+                messagebox.showinfo("Learning Style Percentages", info_message)
+            except Exception as e:
+                messagebox.showerror("Error", f"An error occurred while processing the file: {str(e)}")
+
+    def analyze_styles(self, data):
+        thresholds = {
+            'AR': (0.6, 'Active', 0.4, 'Reflexive'),
+            'SI': (0.6, 'Sequential', 0.4, 'Intuitive'),
+            'VB': (0.6, 'Visual', 0.4, 'Verbal'),
+            'SG': (0.6, 'Sequential', 0.4, 'Global')
+        }
+        results = {dimension: {'High': 0, 'Low': 0} for dimension in thresholds}
+        for dimension, (high_thresh, high_label, low_thresh, low_label) in thresholds.items():
+            dimension_data = data[data['Learning Dimension'] == dimension]['Week 1']
+            high_count = (dimension_data > high_thresh).sum()
+            low_count = (dimension_data < low_thresh).sum()
+            total_count = dimension_data.count()
+            if total_count > 0:
+                results[dimension]['High'] = f"{high_count / total_count * 100:.2f}% {high_label}"
+                results[dimension]['Low'] = f"{low_count / total_count * 100:.2f}% {low_label}"
+        return results
+
+    def ask_gpt(self):
+        question = simpledialog.askstring("Question", "What do you want to ask?")
+        if question:
+            try:
+                response = openai.ChatCompletion.create(
+                    model="gpt-3.5-turbo",
+                    messages=[{"role": "system", "content": "You are helpful."}, {"role": "user", "content": question}]
+                )
+                messagebox.showinfo("GPT Response", response.choices[0].message['content'])
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to fetch response: {str(e)}")
+
+if __name__ == '__main__':
+    root = tk.Tk()
+    app = PredictorChatbotApp(root)
+    root.mainloop()
