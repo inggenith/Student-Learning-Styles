@@ -1,0 +1,77 @@
+import tkinter as tk
+from tkinter import messagebox, simpledialog
+import openai
+
+openai.api_key = 'ENTER API KEY'
+
+root = tk.Tk()
+root.title("Learning Styles Questionnaire")
+
+questions = {
+    "Active/Reflective": [
+        "I clearly understand a subject through problem-solving.",
+        "I like presentations in small groups",
+        "When I start to solve a problem, I am more likely to first analyze the problem and then work on the solution.",
+        "I prefer using simulators to acquire new knowledge.",
+        "When you have difficulty understanding a new subject, using analogies makes it easier to acquire this knowledge."
+    ],
+    "Sequential/Global": [
+        "To appropriate theoretical knowledge, I require the use of simulations or business practices",
+        "It's easier for me to acquire new knowledge using mind maps or conceptual maps",
+        "I like solving any kind of problems to develop an innovative character.",
+        "Collecting and analyzing data helps me acquire new knowledge.",
+        "I like to acquire new knowledge and associate it practically using virtual reality."
+    ],
+    "Sensing/Intuitive": [
+        "To remember the knowledge acquired from the previous day, it is more likely that I do it based on images.",
+        "To acquire new knowledge, it is necessary to do it through expository classes accompanied by texts.",
+        "I like it when the teacher uses diagrams on the board to explain a theoretical concept.",
+        "When someone gives me directions to look for something, I prefer that they indicate it to me through a written instruction.",
+        "When the teacher guides the data processing, I prefer that it be done through the use of graphics."
+    ],
+    "Visual/Verbal": [
+        "I like to apply the theoretical concept acquired in the development of classes through an integrative project.",
+        "I like solving tasks left by the teacher for home.",
+        "When I solve problems applied to general engineering, I generally work on solutions step by step.",
+        "When I approach a case study, I prefer to jump between different parts as it seems more relevant at the moment.",
+        "When I analyze information, I focus on the details and lose sight of the overall picture."
+    ]
+}
+
+local_scores_list = []
+
+for category, qs in questions.items():
+    local_scores = create_window_for_category(category, qs, root)
+    local_scores_list.append(local_scores)
+
+def submit_answers():
+    calculate_averages(local_scores_list)
+
+submit_btn = tk.Button(root, text="Submit Answers", command=submit_answers)
+submit_btn.pack(pady=20)
+
+def ask_gpt():
+    question = simpledialog.askstring("Ask GPT", "What do you want to ask?")
+    if question:
+        try:
+            response = openai.ChatCompletion.create(
+                model="gpt-3.5-turbo",
+                messages=[{"role": "system", "content": "You are helpful."}, {"role": "user", "content": question}]
+            )
+            messagebox.showinfo("GPT Response", response.choices[0].message['content'])
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to fetch response: {str(e)}")
+
+root = tk.Tk()
+root.title("Comprehensive Learning Styles Interface")
+
+btn_felder_silverman = tk.Button(root, text="Felder-Silverman Questionnaire", command=launch_felder_silverman)
+btn_felder_silverman.pack(pady=10)
+
+btn_learning_styles = tk.Button(root, text="My Learning Styles Questionnaire", command=launch_learning_styles)
+btn_learning_styles.pack(pady=10)
+
+btn_chat_gpt = tk.Button(root, text="Ask Chat GPT", command=ask_gpt)
+btn_chat_gpt.pack(pady=10)
+
+root.mainloop()
